@@ -18,6 +18,9 @@ scikit-learn==1.8.0
 # --- generation (AWS Bedrock) ---
 boto3==1.43.40
 
+# --- networking: use the OS trust store (corporate SSL-inspection CA) ---
+truststore==0.10.4
+
 # --- app + utilities ---
 streamlit==1.55.0
 pyyaml==6.0.3

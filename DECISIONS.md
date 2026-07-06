@@ -121,6 +121,7 @@ measurement, not assertion.
 - **Decision:** **reject as the primary system**; **adopt** its idea as (a) session-level prompt-caching of the contract on Bedrock (cost/latency win) and (b) a RAG-vs-CAG ablation on short contracts (Phase 5).
 - **Alternatives rejected:**
   - **CAG as primary:** (1) off-track — Track D mandates a retrieval pipeline; (2) tail contracts exceed useful context + ~15× per-query token cost; (3) blurs verbatim-citation grounding.
+- **Evidence (Phase-1 EDA):** contract length median ≈25.7k chars (~6k tokens — fits context) but max ≈300.8k chars (~75k tokens) — the tail confirms the context/cost failure mode.
 - **Note:** true KV-cache CAG needs a self-hosted model; via Bedrock it's *prompt caching*, not KV reuse.
 - **Maps to:** Algorithm Selection (30%); write-up §2, §4.
 
@@ -144,6 +145,22 @@ measurement, not assertion.
 - **Decision:** build one phase at a time; each phase = decision-labeled commit(s) + push; concept brief + interview Q&A per phase.
 - **Alternatives rejected:** one big commit at the end (opaque, penalized).
 - **Maps to:** Communication (10%); Technical Execution (25%).
+
+## D-19 — CUAD via HF auto-converted Parquet, not the loading script ✅  *(Technical Execution)*
+- **Context:** `datasets>=5` removed support for dataset *loading scripts*; `theatticusproject/cuad-qa` ships only `cuad-qa.py` (no data files on the default branch).
+- **Decision:** pull the `refs/convert/parquet` export directly via `huggingface_hub.hf_hub_download` + pandas.
+- **Alternatives rejected:**
+  - **Downgrade `datasets` to a script-supporting version:** un-pins the env, risks Py3.13 incompatibility, less reproducible.
+  - **Vendor raw `CUAD_v1.json` from Zenodo/GitHub:** heavier, and we'd re-derive the official train/test split ourselves (divergence risk).
+- **Consequences:** script-free and reproducible; `data/download_cuad.py` re-validates the split (102 contracts / 4,182 QA) on every run.
+
+## D-20 — TLS via `truststore` (OS trust store), not certifi ✅  *(Technical Execution)*
+- **Context:** dev machine sits behind a corporate SSL-inspection proxy; its root CA is only in the Windows store, so `certifi` fails `CERTIFICATE_VERIFY_FAILED` on every HF request.
+- **Decision:** `truststore.inject_into_ssl()` at the top of networked scripts → Python uses the OS trust store (trusts the corporate CA). Guarded in try/except → no-op off-corporate.
+- **Alternatives rejected:**
+  - **Disable SSL verification:** insecure; unacceptable even in a dev tool.
+  - **Export the corporate CA to a PEM + `SSL_CERT_FILE`:** brittle, machine-specific, manual steps to reproduce.
+- **Consequences:** all HF downloads (data + `bge`/cross-encoder models) work securely on the corporate network.
 
 ---
 
