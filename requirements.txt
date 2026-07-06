@@ -1,7 +1,6 @@
 # ClauseLens — pinned dependencies
 # Python 3.13.2  (create with:  python -m venv .venv)
-# Versions for the ML stack match a known-good CPU install; new deps left
-# lightly constrained and locked via `pip freeze` once the env is proven.
+# All versions pinned for deterministic, reproducible installs.
 
 # --- retrieval / embeddings (local, CPU) ---
 faiss-cpu==1.13.2
@@ -11,20 +10,20 @@ torch==2.10.0
 rank-bm25==0.2.2
 
 # --- data / numerics ---
-datasets
+datasets==5.0.0
 pandas==2.2.3
 numpy==2.2.3
 scikit-learn==1.8.0
 
 # --- generation (AWS Bedrock) ---
-boto3
+boto3==1.43.40
 
 # --- app + utilities ---
 streamlit==1.55.0
-pyyaml
-tqdm
-matplotlib
+pyyaml==6.0.3
+tqdm==4.68.3
+matplotlib==3.11.0
 
 # --- notebooks (EDA) ---
-jupyter
-ipykernel
+jupyter==1.1.1
+ipykernel==7.3.0

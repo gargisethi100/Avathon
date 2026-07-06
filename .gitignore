@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Virtual environment
+.venv/
+venv/
+
+# Large / regenerable artifacts (rebuilt by scripts)
+data/cuad/
+data/raw/
+data/processed/
+data/*.json
+data/*.jsonl
+data/*.parquet
+data/*.arrow
+indexes/
+*.faiss
+*.index
+*.pkl
+*.npy
+
+# Model / HF caches
+.cache/
+
+# Secrets / credentials
+.env
+*.env
+.aws/
+
+# Challenge brief — "Not for Distribution"
+Avathon_AI_Hiring_Challenge*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
