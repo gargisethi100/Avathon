@@ -162,6 +162,16 @@ measurement, not assertion.
   - **Export the corporate CA to a PEM + `SSL_CERT_FILE`:** brittle, machine-specific, manual steps to reproduce.
 - **Consequences:** all HF downloads (data + `bge`/cross-encoder models) work securely on the corporate network.
 
+## D-21 — Balanced e2e eval sample (150/150); true distribution reported separately ✅  *(Honest Eval)*
+- **Context:** CUAD test is **70.3% unanswerable**; a natural-distribution ~300 sample leaves too few answerable cases for stable answer-quality metrics.
+- **Decision:** seeded, category-stratified draw of **150 answerable + 150 unanswerable** (covers 41/41 categories, 96/102 contracts). Report answer-F1 on the answerable half and abstention precision/recall on the unanswerable half, **and** report headline metrics on the true 70/30 distribution.
+- **Alternatives rejected:**
+  - **Mirror true 70% unanswerable:** ~90 answerable → noisy answer-F1.
+  - **Answer-heavy sample:** under-tests abstention — the safety-critical behavior in legal.
+- **Consequences:** statistical power on both behaviors; distribution honesty preserved via dual reporting.
+- **Honest-eval caveat:** some categories (e.g. *Price Restrictions*) have **0 positives** in the test split → retrieval can't be measured there; excluded from per-category retrieval stats and flagged.
+- **Maps to:** Honest Error Analysis (10%); write-up §3.
+
 ---
 
 *Open decisions (D-08, D-09, D-10, D-12, D-13) are resolved with numbers as Phases 3 and 5 land; this file is updated in place with the empirical winner and the measured deltas.*

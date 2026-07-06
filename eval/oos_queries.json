@@ -1,0 +1,19 @@
+{
+  "_comment": "Hand-written queries for the query gate (Phase 4) and its eval. out_of_scope = unrelated to any contract -> graceful decline. ambiguous = contract-shaped but under-specified -> ask to clarify / flag ambiguity.",
+  "out_of_scope": [
+    "What is the capital of France?",
+    "Who won the 2022 FIFA World Cup?",
+    "Write me a Python function to sort a list.",
+    "What is Apple's stock price today?",
+    "Summarize the plot of Hamlet.",
+    "What's the weather forecast for tomorrow?"
+  ],
+  "ambiguous": [
+    "What are the important dates in this contract?",
+    "Is this a good contract for us?",
+    "What are the terms?",
+    "Who is liable?",
+    "Can they cancel it?",
+    "What happens at the end?"
+  ]
+}
