@@ -48,7 +48,7 @@ class Embedder(Protocol):
 class BGEEmbedder:
     """Local sentence-transformers bge-*-en-v1.5 (unit-normalized)."""
 
-    def __init__(self, model_id: str, name: str, batch_size: int = 64):
+    def __init__(self, model_id: str, name: str, batch_size: int = 128):
         from sentence_transformers import SentenceTransformer
 
         self.model = SentenceTransformer(model_id)

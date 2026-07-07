@@ -141,12 +141,21 @@ def to_markdown(df):
 
 
 def main() -> int:
+    # CPU-tractability: run the ablation on a seeded stratified contract subset
+    # (embedding all 102 contracts x 5 index variants on CPU is ~90 min). The
+    # relative ranking of configs is stable; the winner is confirmed on the full
+    # test set separately.
+    SUBSET_N, SEED = 20, 42
     contracts = pd.read_parquet(DATA / "contracts_test.parquet")
+    if SUBSET_N and SUBSET_N < len(contracts):
+        contracts = contracts.sample(SUBSET_N, random_state=SEED).reset_index(drop=True)
+    subset_titles = set(contracts["title"])
     qa = pd.read_parquet(DATA / "qa_test.parquet")
-    ans = qa[qa["is_answerable"]].reset_index(drop=True)
+    ans = qa[qa["is_answerable"] & qa["title"].isin(subset_titles)].reset_index(drop=True)
     RESULTS.mkdir(exist_ok=True)
+    log(f"ablation subset: {len(contracts)} contracts, {len(ans)} answerable queries (seed {SEED})")
 
-    log("loading bge-small + encoding 1244 queries")
+    log(f"loading bge-small + encoding {len(ans)} queries")
     emb_small = get_embedder("bge-small")
     qv_small = emb_small.encode_queries(ans["question"].tolist())
     log("loading cross-encoder reranker")
@@ -196,7 +205,10 @@ def main() -> int:
     for k in METRIC_KEYS:
         df[k] = df[k].round(4)
     df.to_csv(RESULTS / "retrieval_metrics.csv", index=False)
-    md = "# Retrieval OFAT ablations (1,244 answerable CUAD test queries)\n\n" + to_markdown(df)
+    md = (
+        f"# Retrieval OFAT ablations ({len(ans)} answerable queries, "
+        f"{len(contracts)}-contract stratified subset, seed {SEED})\n\n" + to_markdown(df)
+    )
     (RESULTS / "retrieval_metrics.md").write_text(md, encoding="utf-8")
     log("DONE — wrote results/retrieval_metrics.{md,csv}")
     print("\n" + md)

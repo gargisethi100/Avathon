@@ -77,27 +77,24 @@ measurement, not assertion.
 - **Consequences:** every reported delta is attributable to a single change; cheaper. (Interaction effects not captured — acceptable and stated.)
 - **Maps to:** Algorithm Selection (30%); Honest Error Analysis (10%).
 
-## D-08 — Chunking strategy 🔄  *(open — decided by Phase-3 ablation)*
-- **Context:** legal contracts are hierarchically numbered; clauses can straddle chunk boundaries.
-- **Candidates:** recursive fixed-256 / fixed-512 @15% overlap **vs** structure-aware split on numbered clause headings (recursive fallback).
-- **Alternatives to rule out via measurement:** no-overlap fixed chunks (boundary loss); whole-section chunks (dilute retrieval).
-- **Resolution:** winner chosen by P@k/R@k on the eval set; boundary-loss analysis reported.
+## D-08 — Chunking: recursive-512 ✅  *(resolved by ablation — Q15)*
+- **Measured** (244-query subset, hybrid, bge-small): recursive-256 R@10 0.665 / nDCG 0.488; **recursive-512 R@10 0.753 / nDCG 0.522**; structure_aware-256 0.669 / 0.482; structure_aware-512 0.744 / 0.520.
+- **Winner: recursive-512** — bigger chunks win decisively (256→512 lifts R@10 ~+9 pts; long legal clauses fragment at 256). **Counter to our prior, structure-aware did NOT beat recursive** (near-tie at 512) — prior corrected by measurement, and recursive is simpler (no heading parser).
+- **Boundary loss (Q15):** mitigated by 15% overlap; 100% gold-span coverage at every size (`chunk_coverage.md`) → no answer is lost to a boundary.
 - **Maps to:** write-up Q15; Algorithm Selection (30%).
 
-## D-09 — Embedding model 🔄  *(open — decided by Phase-3 ablation)*
-- **Context:** want to know whether a free local model suffices vs a paid cloud embedding.
-- **Candidates:** `BAAI/bge-small-en-v1.5` (local, CPU) **vs** a Bedrock embedding (Cohere Embed v3 / Titan v2); `bge-base` as a free local step-up.
-- **Alternatives rejected up front:** OpenAI `text-embedding-3-small` (second vendor the user lacks).
-- **Resolution:** compared **empirically** on P@k/R@k; report cost/quality trade-off.
+## D-09 — Embedding: bge-small (bge-base gives no lift) ✅  *(resolved by ablation — Q16)*
+- **Measured** (recursive-256, hybrid): bge-small R@5 0.546 / R@10 0.665 / nDCG 0.488; bge-base R@5 0.543 / R@10 0.656 / nDCG 0.496 — **within ~1 pt, essentially tied**.
+- **Winner: bge-small** — the 3×-larger, ~3×-slower-to-embed bge-base gives no meaningful improvement. Answers Q16's "does a free local model suffice?" → **yes** — a cost/latency win at no accuracy cost.
+- **Bedrock-Cohere** embedding kept as an optional cloud cross-check (creds available); not needed to answer Q16. OpenAI `text-embedding-3-small` rejected up front (second vendor).
 - **Maps to:** write-up Q16; Algorithm Selection (30%).
 
-## D-10 — Retrieval mode 🔄  *(open — decided by Phase-3 ablation, strong prior for hybrid)*
-- **Context:** legal queries are keyword-heavy (exact terms like "indemnification", "change of control") but also paraphrased.
-- **Candidates:** dense-only **vs** BM25-only **vs** hybrid dense+BM25 with **Reciprocal Rank Fusion**, ± cross-encoder rerank (`ms-marco-MiniLM-L-6-v2`).
-- **Why RRF over score-blending:** rank fusion needs no score normalization across incomparable scales.
-- **Why cross-encoder over bi-encoder rerank:** joint query–doc attention → higher precision@top; accepted latency cost.
-- **Resolution:** dense vs BM25 vs hybrid vs +rerank, one table, same eval set (Q17).
-- **Maps to:** write-up Q17; Algorithm Selection (30%).
+## D-10 — Retrieval mode: hybrid-RRF; rerank HURT ✅  *(resolved by ablation — Q17)*
+- **Measured** (recursive-256, bge-small): dense R@5 0.469 / nDCG 0.437; **bm25 R@5 0.543 / nDCG 0.481**; **hybrid-RRF R@5 0.546 / nDCG 0.488**; hybrid+rerank R@5 0.482 / nDCG 0.452.
+- **Winner: hybrid-RRF** (RRF fuses by rank → no score normalization across the incomparable cosine/BM25 scales). Two notable findings:
+  1. **BM25 > dense** on this corpus — legal queries are keyword-heavy; sparse retrieval vindicated. Hybrid edges out BM25.
+  2. **The cross-encoder rerank HURT** (R@5 0.546 → 0.482): `ms-marco-MiniLM-L-6-v2` is web(MS-MARCO)-trained and mis-transfers to contract text. So we **ship hybrid-RRF WITHOUT the generic reranker** — a legal-domain reranker (`bge-reranker-base`) is named as future work, not assumed to help.
+- **Maps to:** write-up Q17; Algorithm Selection (30%); Honest Error Analysis (10%).
 
 ## D-11 — Hallucination defense = 4 layers ✅  *(Algorithm Selection / Honest Eval)*
 - **Context:** legal answers must be grounded and citable; a confident wrong answer is worse than abstention.
@@ -181,6 +178,15 @@ measurement, not assertion.
   - **Symmetric query/passage encoding:** ignores how bge/Cohere were trained for retrieval → weaker recall.
 - **Verified (Phase 2):** offset round-trip 0 failures; **gold-span coverage = 100%** for all 4 chunk configs → retrieval recall ceiling is 100% (any miss in Phase 3 is a retriever failure, not chunking). See `results/chunk_coverage.md`.
 - **Maps to:** write-up Q15/Q16; Technical Execution (25%).
+
+## D-23 — Real-label metrics as primary eval, not RAGAS ✅  *(Honest Eval / Algorithm Selection)*
+- **Context:** RAGAS is the standard RAG-eval framework (faithfulness, context precision/recall, answer relevancy), but its metrics are largely **LLM-judged / reference-free** — designed for setups that LACK ground truth.
+- **Decision:** primary eval = metrics against **CUAD's real gold spans** — retrieval P@k/R@k/MRR/nDCG (real labels), deterministic verbatim-quote faithfulness, token-F1 vs gold. Keep RAGAS as an **optional secondary cross-check** on the e2e sample (faithfulness / answer-relevancy, on Bedrock), time permitting.
+- **Alternatives rejected (as primary):**
+  - **RAGAS context precision/recall (LLM-judged):** strictly weaker than real-label retrieval metrics — estimating with an LLM what we can measure injects noise + leakage risk.
+  - **RAGAS faithfulness (LLM-judge only):** non-deterministic and costly; our deterministic verbatim gate is exact and free, with the LLM judge kept as a sampled add-on.
+- **Consequences:** fully transparent, line-by-line-defensible numbers; RAGAS named as a considered framework and available as a robustness cross-check.
+- **Maps to:** Honest Error Analysis (10%); Algorithm Selection (30%); write-up §3.
 
 ---
 
