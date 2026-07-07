@@ -104,7 +104,8 @@ measurement, not assertion.
   - **LLM-judge only:** costly, non-deterministic, can't be a hard gate.
 - **Consequences:** deterministic gate catches fabricated quotes for free; judge used only for the reported metric.
 - **Phase-4 finding:** the verifier must normalize whitespace **and spacing around punctuation** — LLMs silently tidy quotes (source `"China ,otherwise"` → quote `"China, otherwise"`), so a whitespace-only check false-flags grounded answers as UNGROUNDED and would under-report faithfulness. Fixed; validated end-to-end (answerable → PASS, fabricated → UNGROUNDED).
-- **Maps to:** write-up Q18; Algorithm Selection (30%).
+- **Phase-5 finding:** strict "*all* quotes must be verbatim" gives a **conservative** faithfulness of 0.53 on the 300-pair sample — verbose answers pair a correct primary quote (F1↑) with paraphrased "key-point" quotes that fail. It's a hard *lower bound*; verifying only the primary citation (or suppressing embellishment in the prompt) would raise it. This is why the layered design also keeps an LLM judge for the *reported* semantic-faithfulness rate.
+- **Maps to:** write-up Q18; Algorithm Selection (30%); Honest Error Analysis (10%).
 
 ## D-12 — Corrective RAG (CRAG): partially adopt, reject web fallback 🔄  *(Algorithm Selection)*
 - **Context:** CRAG (Yan et al. 2024) assesses retrieval quality and corrects; its "incorrect" branch does a **web search**.

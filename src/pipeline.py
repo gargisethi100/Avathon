@@ -22,9 +22,10 @@ from query_gate import QueryGate
 from retrieval import CrossEncoderReranker, search
 from verifier import should_abstain, verify_answer
 
-# Default config; updated to the Phase-3 winner once measured.
-DEFAULTS = dict(chunking="recursive", tokens=256, embedder="bge-small",
-                mode="hybrid_rerank", abstain_threshold=None)
+# Phase-3 winner (measured): recursive-512 + bge-small + hybrid-RRF.
+# The MS-MARCO cross-encoder rerank HURT retrieval on legal text, so it's off.
+DEFAULTS = dict(chunking="recursive", tokens=512, embedder="bge-small",
+                mode="hybrid", abstain_threshold=None)
 
 
 class ClauseLens:
