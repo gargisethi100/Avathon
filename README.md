@@ -2,10 +2,15 @@
 
 **Avathon AI Hiring Challenge · Scenario 2 (Gen AI for Enterprise Documents) · Track D (RAG / LLM Knowledge Systems)**
 
-ClauseLens answers natural-language questions about a **specific contract** with **verbatim
-citations, deterministic faithfulness verification, and graceful abstention**. Every major
-design choice (chunking, embeddings, retrieval mode, re-ranking) is decided by a **measured
-ablation** against CUAD's expert answer spans — not by assertion.
+**Problem.** Legal teams are drowning in unstructured commercial contracts. Answering a
+routine question — *"what is the termination notice period in this agreement?"* — means
+manually hunting through dozens of pages, and in a legal setting an unverifiable or
+hallucinated AI answer is **worse than no answer at all**.
+
+**Solution.** ClauseLens answers natural-language questions about a **specific contract** with
+**verbatim citations, deterministic faithfulness verification, and graceful abstention**.
+Every major design choice (chunking, embeddings, retrieval mode, re-ranking) is decided by a
+**measured ablation** against CUAD's expert answer spans — not by assertion.
 
 > **📹 Walkthrough video (5 min):** [loom.com/share/f0636110944647beb4830950167fc04a](https://www.loom.com/share/f0636110944647beb4830950167fc04a) · **📄 Write-up:** [ClauseLens — Technical Write-Up (Track D).pdf](<ClauseLens — Technical Write-Up (Track D).pdf>)
 
