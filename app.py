@@ -25,7 +25,10 @@ DATA = ROOT / "data" / "processed"
 DEMO_CONTRACTS = 6
 
 SUGGESTIONS = ["What is the governing law?", "What is the termination notice period?", "Who are the parties?"]
-EDGE_CASES = {"Out-of-scope query": "What is the capital of France?", "Ambiguous query": "What are the terms?"}
+EDGE_CASES = [
+    ("What is the capital of France?", "Tests out-of-scope handling — the gate should decline it"),
+    ("What are the terms?", "Tests ambiguous-query handling — the gate should ask to clarify"),
+]
 
 st.set_page_config(page_title="ClauseLens · Contract Intelligence", layout="wide")
 ui.inject_css()
@@ -56,8 +59,8 @@ with st.sidebar:
             st.session_state.pending_q = s
 
     st.markdown("**Edge-case tests**")
-    for label, q in EDGE_CASES.items():
-        if st.button(label, key=f"edge_{label}"):
+    for i, (q, tip) in enumerate(EDGE_CASES):
+        if st.button(q, key=f"edge{i}", help=tip):
             st.session_state.pending_q = q
 
     st.divider()
