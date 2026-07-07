@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ClauseLens — Technical Write-Up (Track D)</title>
+<!-- To produce the submission PDF: open this file in a browser -> Print -> Save as PDF
+     (A4 or Letter, default scale). Verify it fits 2 pages and the name is correct. -->
+<style>
+  @page { margin: 15mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Georgia, "Times New Roman", serif; font-size: 11pt; line-height: 1.32;
+         color: #111; max-width: 185mm; margin: 0 auto; padding: 12px; }
+  h1 { font-size: 15pt; margin: 0 0 1px; }
+  .meta { font-size: 10.5pt; color: #333; margin: 0 0 10px; }
+  h2 { font-size: 12pt; margin: 11px 0 4px; border-bottom: 1px solid #999; padding-bottom: 1px; }
+  p, li { margin: 0 0 5px; text-align: justify; }
+  ul { margin: 0 0 5px; padding-left: 17px; }
+  li { margin-bottom: 3px; }
+  b, strong { font-weight: 700; }
+  table { border-collapse: collapse; width: 100%; font-size: 10pt; margin: 4px 0 7px; }
+  th, td { border: 1px solid #aaa; padding: 2px 6px; text-align: left; }
+  th { background: #efefef; }
+  .q { color: #444; font-weight: 700; }
+  @media print { body { padding: 0; } }
+</style>
+</head>
+<body>
+
+<h1>ClauseLens — RAG for Contract Intelligence</h1>
+<p class="meta"><b>Gargi Sethi</b> · <b>Track D — RAG / LLM Knowledge Systems</b> · Scenario 2 (Gen AI for Enterprise Documents) · <a href="https://github.com/gargisethi100/Avathon">github.com/gargisethi100/Avathon</a></p>
+
+<h2>1 · Problem &amp; Domain</h2>
+<p>Legal teams drown in contracts and need natural-language answers about a <i>specific</i> document — “what is the termination-for-convenience notice period?” — with <b>citable, verifiable</b> support. This is a <b>knowledge-retrieval</b> problem, not skill acquisition: the knowledge (clause text) differs per document and grows over time. Hence <b>RAG (Track D), not fine-tuning</b> (bakes stale knowledge into weights, cannot emit verbatim citations, needs retraining per contract) and <b>not agents</b> (orchestration cost, no retrieval-quality payoff for single-document lookup). <b>Corpus: CUAD</b> (510 commercial contracts, 41 clause categories, expert-annotated answer spans, CC&nbsp;BY&nbsp;4.0). The spans give <i>real</i> retrieval ground truth, so quality is <b>measured</b>, not self-judged. Test partition: 102 contracts, 4,182 QA pairs — 70% unanswerable, treated as a large, honest abstention test.</p>
+
+<h2>2 · Approach &amp; Algorithm Decisions <span style="font-weight:400">(each decided by measured ablation; several priors refuted)</span></h2>
+<ul>
+  <li><span class="q">Chunking (Q15) → recursive-512, 15% overlap.</span> 512 beat 256 decisively (R@10 0.75 vs 0.67 — long clauses fragment at 256). Against our prior, a structure-aware clause-heading splitter did <b>not</b> beat recursive (near-tie), so we ship the simpler one. Boundary loss mitigated by overlap; verified <b>100% gold-span coverage</b> at every size — no answer is lost at a chunk boundary.</li>
+  <li><span class="q">Embeddings (Q16) → bge-small (local, free).</span> Empirically tied with 3×-larger bge-base (within ~1 pt R@10) → a free local model suffices. OpenAI rejected (second vendor); Bedrock-Cohere kept as optional cross-check.</li>
+  <li><span class="q">Retrieval + fusion (Q17) → hybrid dense+BM25 with Reciprocal Rank Fusion.</span> <b>BM25 beat dense</b> (R@5 0.54 vs 0.47 — legal queries are keyword-heavy); hybrid-RRF edged both. A <b>MS-MARCO cross-encoder rerank hurt</b> (0.55→0.48): web-trained rerankers mis-transfer to contract language, so we ship without it (legal-domain reranker = future work). RRF over score-blending: rank fusion needs no normalization across incomparable cosine/BM25 scales. <b>FAISS flat</b> (exact; ANN needless at thousands of vectors; pgvector/HNSW is the production path).</li>
+  <li><span class="q">Generation → Claude Haiku 4.5 on AWS Bedrock.</span> Grounding prompt: answer only from excerpts, quote verbatim, cite [n], else <code>NOT_FOUND</code>.</li>
+  <li><span class="q">Hallucination defense (Q18), 4 layers:</span> grounding prompt → <b>deterministic verbatim-quote verifier</b> (every quoted span must be a substring of retrieved context — catches fabrication at zero LLM cost) → score-threshold abstention → LLM-judge on a sample. Finding: the verifier must normalize whitespace <i>and</i> punctuation spacing (LLMs silently tidy quotes), else faithfulness is under-reported.</li>
+  <li><span class="q">Query handling:</span> a light gate routes IN_SCOPE / OUT_OF_SCOPE / AMBIGUOUS (out-of-scope declined gracefully); multi-turn follow-ups are rewritten into standalone queries (<i>condense-question</i>, bounded last-N + summary memory) — fixing <b>retrieval</b>, not just generation, while grounding is untouched.</li>
+</ul>
+<p><b>Considered and rejected (named):</b> Corrective RAG — adopt assess-and-correct routing, reject web-search fallback (external text ≠ the executed contract); Cache-Augmented Generation — rejected as primary (off-track; tail contracts ≈75k tokens; blurs citation), adopted as session prompt-cache; Self-RAG / Adaptive-RAG / GraphRAG — ill-fitting a no-fine-tune single-hop task; RAGAS — we have real gold labels, so we measure retrieval rather than LLM-judge it (kept as optional cross-check).</p>
+
+<h2>3 · Results &amp; Error Analysis <span style="font-weight:400">(held-out CUAD test)</span></h2>
+<table>
+  <tr><th>axis</th><th>winner</th><th>key numbers (244-query stratified subset)</th></tr>
+  <tr><td>retrieval mode (Q17)</td><td><b>hybrid-RRF</b></td><td>dense R@5 .47 · BM25 .54 · <b>hybrid .55</b> · +rerank .48 (<i>hurt</i>)</td></tr>
+  <tr><td>chunking (Q15)</td><td><b>recursive-512</b></td><td>R@10: 256 = .665 · <b>512 = .753</b>; structure-aware tied, not better</td></tr>
+  <tr><td>embedding (Q16)</td><td><b>bge-small</b></td><td>bge-small R@10 .665 ≈ bge-base .656 (no lift)</td></tr>
+</table>
+<p><b>End-to-end</b> (balanced 300-pair sample; winner config): answer token-F1 <b>0.58 when it answers</b> (0.44 incl. abstentions) · abstention <b>precision 0.73 / recall 0.83</b> · strict verbatim-verifier faithfulness <b>0.53</b>. Error taxonomy (300): clean-answer 48 · clean-abstain 125 · unfaithful-quote 46 · wrongful-abstention 46 · wrongful-answer 25 · correct-context-wrong-answer 10. Honest findings:</p>
+<ul>
+  <li><b>Faithfulness 0.53 is a strict lower bound</b>, not “hallucinates half the time”: the gate flags an answer if <i>any</i> quote is non-verbatim, and verbose answers pair a correct primary quote (F1 up to 1.0) with paraphrased “key-point” quotes that fail. Verifying only the primary citation, or suppressing embellishment, would raise it; the strictness is deliberate — a hard safety gate.</li>
+  <li><b>Wrongful abstention (46) is not purely retrieval miss:</b> a large slice is the “Document Name” category, where the gold answer is the contract <i>title</i> — retrieved, but the model declines to treat “the contract is called X” as the answer. Part retrieval recall, part question interpretation.</li>
+  <li><b>Abstention recall 0.83:</b> 25 unanswerables were answered (over-explaining a <i>related</i> clause); the deterministic verifier flags most as UNGROUNDED — a partial safety net when generation over-reaches.</li>
+</ul>
+<p><i>Caveat:</i> the retrieval ablation ran on a seeded 20-contract subset (CPU tractability; the relative ranking is what the ablation decides); the e2e eval used the full balanced 300-pair sample.</p>
+
+<h2>4 · Production &amp; Limitations</h2>
+<p><b>Production (1,000 concurrent queries):</b> bottlenecks are (a) embedding CPU → GPU batch server; (b) LLM rate limits → response caching + request queue; (c) FAISS flat → HNSW/pgvector. <b>Measured per-query latency</b> (logged for every query): retrieval ~0.2s CPU · generation ~3s (Haiku 4.5, ~1.2k in / ~0.2k out tokens) · gate ~2.6s (parallelizable) → ~6s total; Bedrock prompt-caching amortizes per-contract context across a session. <b>Freshness (demonstrated):</b> adding a contract embeds only that contract — 0.8s, existing vectors untouched, immediately queryable; the real re-embed trigger is an embedding-model version change, not corpus growth.</p>
+<p><b>Limitations:</b> (1) tables/exhibits — text-only chunking loses tabular layout; (2) multi-span answers (mean 2.1, max 19 spans/question) stress single-chunk retrieval; (3) the single biggest lever is <b>retrieval recall</b> — a legal-domain reranker or fine-tuned embedder is the clear next step and would directly shrink the wrongful-abstention bucket.</p>
+
+</body>
+</html>
