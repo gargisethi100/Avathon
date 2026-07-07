@@ -1,12 +1,11 @@
 """
-app.py — ClauseLens demo (Contract Intelligence).  Run:  streamlit run app.py
+app.py — ClauseLens demo (Contract Intelligence), conversational chatbot.
 
-A polished, inspectable product UI over the unchanged pipeline. After a question:
-  - LEFT  (≈62%): the answer + compact status badges + quote-verification status
-  - RIGHT (≈38%): only the supporting evidence (cited chunks)
-  - below: an optional "Retrieval diagnostics" panel with the full top-k trace
-Conversational memory is preserved (follow-ups are contextualized). Rendering lives in
-`src/ui_components.py`; this file is orchestration only.
+A persistent multi-turn chat thread: questions and grounded answers STACK like a
+chatbot, follow-ups are resolved via conversational memory, and each assistant turn
+is a rich, inspectable block — status badges, source-chip citations, supporting
+evidence, quote-verification, and a collapsed retrieval-diagnostics panel. Rendering
+lives in `src/ui_components.py`; this file is orchestration only. Backend unchanged.
 """
 from __future__ import annotations
 
@@ -74,46 +73,30 @@ if st.session_state.get("contract_key") != contract:
     st.session_state.turns = []  # list[(question, result)]
 session: ClauseLensSession = st.session_state.session
 
-# ---------------- header + ask ----------------
+# ---------------- header ----------------
 ui.render_header()
 st.caption("recursive-512 chunks · hybrid dense + BM25 with RRF fusion · Claude Haiku 4.5 · quote-verified")
-st.write("")
 
-with st.form("ask", clear_on_submit=True):
-    c1, c2 = st.columns([6, 1])
-    typed = c1.text_input("Question", placeholder="Ask a question about this contract…",
-                          label_visibility="collapsed")
-    submitted = c2.form_submit_button("Ask", type="primary", use_container_width=True)
+# ---------------- chat thread (prior turns stack) ----------------
+for q, result in st.session_state.turns:
+    with st.chat_message("user"):
+        st.markdown(q)
+    with st.chat_message("assistant"):
+        ui.render_assistant_turn(result)
 
-pending = st.session_state.pop("pending_q", None)
-question = pending or (typed if submitted else None)
+# ---------------- input (pinned bottom) + chips ----------------
+prompt = st.chat_input(f"Ask about {ui.short_name(contract)}…")
+question = st.session_state.pop("pending_q", None) or prompt
 
 if question and question.strip():
-    with st.spinner("Contextualize → gate → retrieve → generate → verify…"):
-        result = session.ask(question.strip(), contract)
-    st.session_state.turns.append((question.strip(), result))
-
-# ---------------- render latest turn ----------------
-turns = st.session_state.get("turns", [])
-if not turns:
-    st.info("Select a contract and ask a question — or try a suggestion in the sidebar.")
-else:
-    _, result = turns[-1]
-    if result.get("was_rewritten"):
-        st.caption(f"↻ interpreted as: *{result['standalone_question']}*")
-
-    if result.get("status") == "answered":
-        left, right = st.columns([62, 38], gap="large")
-        with left:
-            ui.render_answer(result)
-        with right:
-            ui.render_evidence(result)
-    else:
-        ui.render_state(result)
-
-    ui.render_diagnostics(result)
-
-    if len(turns) > 1:
-        with st.expander(f"Conversation history ({len(turns) - 1} earlier)"):
-            for qq, rr in reversed(turns[:-1]):
-                st.markdown(f"**{qq}**  \n{rr.get('answer', '')[:180]}")
+    question = question.strip()
+    with st.chat_message("user"):
+        st.markdown(question)
+    with st.chat_message("assistant"):
+        with st.spinner("Contextualize → gate → retrieve → generate → verify…"):
+            result = session.ask(question, contract)
+        ui.render_assistant_turn(result)
+    st.session_state.turns.append((question, result))
+elif not st.session_state.turns:
+    st.info("Ask a question about the selected contract — or try a suggestion in the sidebar. "
+            "Follow-ups work: try “What is the termination provision?” then “and its notice period?”")

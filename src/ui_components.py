@@ -197,3 +197,37 @@ def render_diagnostics(result: dict) -> None:
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.caption("No retrieval performed for this query (gated before retrieval).")
+
+
+def render_assistant_turn(result: dict) -> None:
+    """Render one assistant turn INSIDE a chat message (the bubble is the card).
+
+    Composes the rich, inspectable answer block: rewrite note, status badges, answer
+    with source-chip citations, quote-verification line, supporting evidence (default
+    visible), and a collapsed diagnostics panel — per chat turn.
+    """
+    if result.get("was_rewritten"):
+        st.caption(f"↻ interpreted as: {result.get('standalone_question', '')}")
+
+    status = result.get("status")
+    if status == "answered":
+        render_badges(_answer_badges(result))
+        st.markdown(_cite_html(result.get("answer", "")), unsafe_allow_html=True)
+        _render_verification(result)
+        if result.get("evidence"):
+            render_evidence(result)
+    else:
+        conf = {
+            "declined_out_of_scope": ("Out of scope", "bad",
+                "This question is outside the selected contract. Ask about a clause, party, date, or obligation in this document."),
+            "needs_clarification": ("Ambiguous", "warn", result.get("answer", "")),
+            "abstained_low_score": ("Abstained", "warn",
+                "No sufficiently relevant clause was retrieved, so the system declined to answer rather than guess."),
+        }.get(status, (None, None, result.get("answer", "")))
+        label, kind, msg = conf
+        if label:
+            render_badges([(label, kind)])
+        st.markdown(msg)
+
+    if result.get("trace", {}).get("retrieval_detail"):
+        render_diagnostics(result)
