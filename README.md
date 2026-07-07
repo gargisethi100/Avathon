@@ -5,10 +5,9 @@
 ClauseLens answers natural-language questions about a **specific contract** with **verbatim
 citations, deterministic faithfulness verification, and graceful abstention**. Every major
 design choice (chunking, embeddings, retrieval mode, re-ranking) is decided by a **measured
-ablation** against CUAD's expert answer spans — not by assertion. The reasoning behind each
-choice, including alternatives rejected, is logged in **[DECISIONS.md](DECISIONS.md)**.
+ablation** against CUAD's expert answer spans — not by assertion.
 
-> **📹 Walkthrough video (5 min):** _link to be added_ · **📄 Write-up:** [writeup/writeup.md](writeup/writeup.md) ([print/PDF version](writeup/writeup.html))
+> **📹 Walkthrough video (5 min):** [loom.com/share/f0636110944647beb4830950167fc04a](https://www.loom.com/share/f0636110944647beb4830950167fc04a) · **📄 Write-up:** [ClauseLens — Technical Write-Up (Track D).pdf](<ClauseLens — Technical Write-Up (Track D).pdf>)
 
 ```
 query ─▶ query gate (in-scope / out-of-scope / ambiguous)
@@ -18,7 +17,7 @@ query ─▶ query gate (in-scope / out-of-scope / ambiguous)
       ─▶ answer + citations + faithfulness verdict   |   graceful decline
 ```
 
-## Key measured findings (see `results/`, DECISIONS.md D-08/09/10)
+## Key measured findings (see `results/`)
 
 - **BM25 > dense** on this legal corpus (R@5 .54 vs .47) — queries are keyword-heavy; **hybrid-RRF wins** (.55).
 - **A generic (MS-MARCO) cross-encoder rerank *hurt*** (.55→.48) — it mis-transfers to contract text. Shipped **without** it.
@@ -73,9 +72,8 @@ src/     chunking · embeddings · indexing · retrieval          # ingestion + 
          generation · verifier · query_gate · pipeline · config # generation + defense
 eval/    chunk_coverage · retrieval_eval · e2e_eval            # measurement
 results/ metrics tables, figures, traces
-app.py   Streamlit demo    ·    writeup/    1–2 page write-up
-DECISIONS.md  architecture decision record (every choice + rejected alternatives)
-PLAN.md       full phased plan + interview-readiness mapping
+app.py   Streamlit demo
+ClauseLens — Technical Write-Up (Track D).pdf   # 1–2 page write-up
 ```
 
 ## Data & License
