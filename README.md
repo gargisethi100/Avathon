@@ -8,6 +8,8 @@ design choice (chunking, embeddings, retrieval mode, re-ranking) is decided by a
 ablation** against CUAD's expert answer spans — not by assertion. The reasoning behind each
 choice, including alternatives rejected, is logged in **[DECISIONS.md](DECISIONS.md)**.
 
+> **📹 Walkthrough video (5 min):** _link to be added_ · **📄 Write-up:** [writeup/writeup.md](writeup/writeup.md) ([print/PDF version](writeup/writeup.html))
+
 ```
 query ─▶ query gate (in-scope / out-of-scope / ambiguous)
       ─▶ hybrid retrieval (dense bge + BM25, RRF fusion, per-contract)
