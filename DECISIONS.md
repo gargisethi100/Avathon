@@ -172,6 +172,15 @@ measurement, not assertion.
 - **Honest-eval caveat:** some categories (e.g. *Price Restrictions*) have **0 positives** in the test split → retrieval can't be measured there; excluded from per-category retrieval stats and flagged.
 - **Maps to:** Honest Error Analysis (10%); write-up §3.
 
+## D-22 — Chunk sizing decoupled from the embedder; query/passage asymmetry ✅  *(Technical Execution / Honest Eval)*
+- **Context:** the embedding model is a *measured* axis (D-09) — chunk boundaries must not depend on which embedder we test, or the comparison is confounded.
+- **Decision:** size chunks in **nominal chars (tokens × 4)**, independent of any model tokenizer, so **every backend embeds the identical chunks**. Retrieval encoding respects each model's query/passage asymmetry (bge query prefix; Cohere `input_type`).
+- **Alternatives rejected:**
+  - **Size chunks with the embedder's own tokenizer:** boundaries shift per embedder → the embedding ablation confounds "better model" with "different chunks".
+  - **Symmetric query/passage encoding:** ignores how bge/Cohere were trained for retrieval → weaker recall.
+- **Verified (Phase 2):** offset round-trip 0 failures; **gold-span coverage = 100%** for all 4 chunk configs → retrieval recall ceiling is 100% (any miss in Phase 3 is a retriever failure, not chunking). See `results/chunk_coverage.md`.
+- **Maps to:** write-up Q15/Q16; Technical Execution (25%).
+
 ---
 
 *Open decisions (D-08, D-09, D-10, D-12, D-13) are resolved with numbers as Phases 3 and 5 land; this file is updated in place with the empirical winner and the measured deltas.*
