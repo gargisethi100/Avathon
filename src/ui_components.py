@@ -14,38 +14,44 @@ import re
 
 import streamlit as st
 
-ACCENT = "#4F46E5"
+ACCENT = "#8B5CF6"
 
 _CSS = """
 <style>
   .block-container { padding-top: 2.2rem; padding-bottom: 3rem; max-width: 1180px; }
-  section[data-testid="stSidebar"] { width: 292px !important; min-width: 292px !important; }
+  section[data-testid="stSidebar"] { width: 292px !important; min-width: 292px !important;
+      border-right: 1px solid rgba(139,92,246,.22); }
   section[data-testid="stSidebar"] .stButton > button {
-      padding: .28rem .6rem; font-size: .82rem; border-radius: 8px; width: 100%;
-      border: 1px solid #E2E8F0; background: #fff; color: #1E293B; font-weight: 500; }
-  section[data-testid="stSidebar"] .stButton > button:hover { border-color: #4F46E5; color: #4F46E5; }
-  /* bordered containers -> clean cards */
+      padding: .3rem .62rem; font-size: .82rem; border-radius: 9px; width: 100%; font-weight: 500;
+      border: 1px solid rgba(139,92,246,.35); background: #171D2E; color: #E6E8EE; transition: all .12s ease; }
+  section[data-testid="stSidebar"] .stButton > button:hover {
+      border-color: #8B5CF6; color: #C4B5FD; box-shadow: 0 0 12px rgba(139,92,246,.35); }
+  /* bordered containers -> vibrant glowing cards */
   div[data-testid="stVerticalBlockBorderWrapper"] {
-      background: #fff; border: 1px solid #E7E9EE !important; border-radius: 11px;
-      box-shadow: 0 1px 2px rgba(16,24,40,.04); }
-  .cl-h1 { font-size: 1.5rem; font-weight: 750; margin: 0; color: #0F172A; letter-spacing: -.01em; }
-  .cl-sub { color: #64748B; margin: .15rem 0 0; font-size: .92rem; }
-  .cl-section { font-size: .74rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
-      color: #94A3B8; margin: .1rem 0 .55rem; }
+      background: #141A2B; border: 1px solid rgba(139,92,246,.45) !important; border-radius: 12px;
+      box-shadow: 0 0 0 1px rgba(139,92,246,.10), 0 0 18px rgba(139,92,246,.12); }
+  /* chat bubbles get a subtle vibrant edge */
+  div[data-testid="stChatMessage"] {
+      background: rgba(139,92,246,.045); border: 1px solid rgba(139,92,246,.16); border-radius: 12px; }
+  .cl-h1 { font-size: 1.55rem; font-weight: 750; margin: 0; color: #F5F3FF; letter-spacing: -.01em; }
+  .cl-sub { color: #A78BFA; margin: .15rem 0 0; font-size: .92rem; }
+  .cl-section { font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: #7C8598; margin: .1rem 0 .55rem; }
   .cl-badges { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 .7rem; }
-  .cl-badge { font-size: .72rem; font-weight: 600; padding: 2px 9px; border-radius: 6px; border: 1px solid transparent; }
-  .cl-ok   { background: #ECFDF3; color: #067647; border-color: #ABEFC6; }
-  .cl-info { background: #EEF2FF; color: #3730A3; border-color: #C7D2FE; }
-  .cl-warn { background: #FFFAEB; color: #B54708; border-color: #FEDF89; }
-  .cl-bad  { background: #FEF3F2; color: #B42318; border-color: #FECDCA; }
-  .cl-muted{ background: #F2F4F7; color: #475467; border-color: #E4E7EC; }
-  .cl-cite { font-size: .72rem; font-weight: 600; color: #3730A3; background: #EEF2FF;
-      border: 1px solid #C7D2FE; border-radius: 5px; padding: 0 6px; margin: 0 2px; white-space: nowrap; }
-  .cl-src  { font-weight: 700; color: #0F172A; font-size: .92rem; }
-  .cl-meta { color: #64748B; font-size: .78rem; margin-top: 1px; }
-  .cl-quote { border-left: 3px solid #4F46E5; background: #F7F8FE; padding: .5rem .7rem;
-      border-radius: 0 7px 7px 0; margin: .4rem 0; color: #1E293B; font-size: .9rem; line-height: 1.45; }
-  .cl-verify { border-radius: 8px; padding: .5rem .7rem; font-size: .84rem; margin-top: .7rem; }
+  .cl-badge { font-size: .72rem; font-weight: 600; padding: 2px 10px; border-radius: 6px; border: 1px solid transparent; }
+  .cl-ok   { background: rgba(16,185,129,.14); color: #6EE7B7; border-color: rgba(16,185,129,.5); }
+  .cl-info { background: rgba(139,92,246,.16); color: #C4B5FD; border-color: rgba(139,92,246,.55); }
+  .cl-warn { background: rgba(245,158,11,.14); color: #FCD34D; border-color: rgba(245,158,11,.5); }
+  .cl-bad  { background: rgba(244,63,94,.14); color: #FDA4AF; border-color: rgba(244,63,94,.5); }
+  .cl-muted{ background: rgba(148,163,184,.14); color: #CBD5E1; border-color: rgba(148,163,184,.35); }
+  .cl-cite { font-size: .72rem; font-weight: 600; color: #C4B5FD; background: rgba(139,92,246,.18);
+      border: 1px solid rgba(139,92,246,.55); border-radius: 5px; padding: 0 6px; margin: 0 2px; white-space: nowrap; }
+  .cl-src  { font-weight: 700; color: #F1F5F9; font-size: .92rem; }
+  .cl-meta { color: #94A3B8; font-size: .78rem; margin-top: 1px; }
+  .cl-quote { border-left: 3px solid #8B5CF6; background: #1B2133; padding: .5rem .7rem;
+      border-radius: 0 7px 7px 0; margin: .4rem 0; color: #D7DCE6; font-size: .9rem; line-height: 1.45;
+      box-shadow: 0 0 14px rgba(139,92,246,.10); }
+  .cl-verify { border-radius: 8px; padding: .5rem .7rem; font-size: .84rem; margin-top: .7rem; border: 1px solid transparent; }
 </style>
 """
 
