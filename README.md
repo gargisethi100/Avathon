@@ -36,11 +36,8 @@ pip install -r requirements.txt
 ```
 
 - **Python 3.13.2.** All deps pinned in `requirements.txt`.
-- **Generator:** Claude on **AWS Bedrock**. Create a gitignored `.env` at repo root:
-  ```
-  AWS_BEARER_TOKEN_BEDROCK=your_bedrock_api_key      # or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY
-  AWS_DEFAULT_REGION=us-east-1
-  ```
+- **Generator:** Claude on **AWS Bedrock**. Copy **[`.env.example`](.env.example)** to `.env`
+  (gitignored) and fill in your Bedrock API key (or IAM key pair) + region.
   Enable **Anthropic Claude model access** in the Bedrock console for that region.
 - **Corporate SSL note:** `truststore` routes TLS through the OS trust store (handles SSL-inspection proxies); a no-op elsewhere.
 
