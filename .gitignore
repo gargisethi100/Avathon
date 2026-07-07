@@ -25,6 +25,9 @@ indexes/
 # Model / HF caches
 .cache/
 
+# Runtime query trace logs
+logs/
+
 # Secrets / credentials
 .env
 *.env

@@ -1,0 +1,15 @@
+# ClauseLens demo theme — clean, neutral, single indigo accent.
+# (Fixes Streamlit's default red input/focus, sets a light product surface.)
+[theme]
+base = "light"
+primaryColor = "#4F46E5"
+backgroundColor = "#F8FAFC"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0F172A"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

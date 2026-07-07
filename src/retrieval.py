@@ -86,4 +86,62 @@ def search(
     raise ValueError(f"unknown retrieval mode: {mode!r}")
 
 
+def _chunk_index(chunk_id: str):
+    tail = chunk_id.rsplit("::", 1)[-1]
+    return int(tail) if tail.isdigit() else None
+
+
+def search_traced(index, contract_id, query_vec, query_tokens, mode,
+                  k: int = 10, pool: int = 20, reranker=None, query_text=None):
+    """Like search(), but ALSO returns a full per-chunk retrieval trace.
+
+    Returns (hits, records). `hits` is identical to search(...) for the same mode
+    (so answers/metrics are unchanged); `records` is a per-chunk breakdown over the
+    fused candidate pool — dense/bm25/rrf/reranker rank+score, final_rank, selected —
+    the always-on backend trace the UI diagnostics render.
+    """
+    dense = index.dense_search(contract_id, query_vec, pool)
+    sparse = index.bm25_search(contract_id, query_tokens, pool)
+    fused = reciprocal_rank_fusion([dense, sparse])
+    reranked = None
+    if mode == "hybrid_rerank":
+        if reranker is None:
+            raise ValueError("hybrid_rerank requires a reranker")
+        reranked = reranker.rerank(query_text, fused[:pool])
+
+    final = {"dense": dense, "bm25": sparse, "hybrid": fused,
+             "hybrid_rerank": reranked}.get(mode)
+    if final is None:
+        raise ValueError(f"unknown retrieval mode: {mode!r}")
+    final = final[:k]
+
+    def rankmap(lst):
+        return {c.chunk_id: (i + 1, float(s)) for i, (c, s) in enumerate(lst)}
+
+    d, b, f = rankmap(dense), rankmap(sparse), rankmap(fused)
+    r = rankmap(reranked) if reranked is not None else {}
+    final_rank = {c.chunk_id: i + 1 for i, (c, _) in enumerate(final)}
+    selected = set(final_rank)
+
+    by_id = {}
+    for lst in (fused, dense, sparse):
+        for c, _ in lst:
+            by_id.setdefault(c.chunk_id, c)
+
+    records = []
+    for cid, ch in by_id.items():
+        records.append({
+            "chunk_id": cid, "chunk_index": _chunk_index(cid),
+            "contract_id": getattr(ch, "contract_id", contract_id),
+            "text": ch.text, "char_start": ch.char_start, "char_end": ch.char_end,
+            "dense_rank": d.get(cid, (None, None))[0], "dense_score": d.get(cid, (None, None))[1],
+            "bm25_rank": b.get(cid, (None, None))[0], "bm25_score": b.get(cid, (None, None))[1],
+            "rrf_rank": f.get(cid, (None, None))[0], "rrf_score": f.get(cid, (None, None))[1],
+            "reranker_rank": r.get(cid, (None, None))[0], "reranker_score": r.get(cid, (None, None))[1],
+            "final_rank": final_rank.get(cid), "selected": cid in selected,
+        })
+    records.sort(key=lambda x: (x["final_rank"] is None, x["final_rank"] or 1e9, x["rrf_rank"] or 1e9))
+    return final, records
+
+
 MODES = ("dense", "bm25", "hybrid", "hybrid_rerank")

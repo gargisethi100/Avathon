@@ -43,6 +43,7 @@ class Answer:
     cited_chunk_ids: list[str]
     quotes: list[str]
     abstained: bool
+    cited_indices: list = field(default_factory=list)  # display indices [n] the answer cited
     context_map: dict = field(default_factory=dict)  # display_index -> chunk
     usage: dict = field(default_factory=dict)
 
@@ -87,6 +88,7 @@ class BedrockGenerator:
             cited_chunk_ids=cited_chunk_ids,
             quotes=quotes,
             abstained=abstained,
+            cited_indices=cited_idx,
             context_map=mapping,
             usage=resp.get("usage", {}),
         )
