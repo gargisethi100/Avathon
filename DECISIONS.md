@@ -106,6 +106,7 @@ measurement, not assertion.
   - **Prompt-only grounding:** no detection when the model deviates.
   - **LLM-judge only:** costly, non-deterministic, can't be a hard gate.
 - **Consequences:** deterministic gate catches fabricated quotes for free; judge used only for the reported metric.
+- **Phase-4 finding:** the verifier must normalize whitespace **and spacing around punctuation** — LLMs silently tidy quotes (source `"China ,otherwise"` → quote `"China, otherwise"`), so a whitespace-only check false-flags grounded answers as UNGROUNDED and would under-report faithfulness. Fixed; validated end-to-end (answerable → PASS, fabricated → UNGROUNDED).
 - **Maps to:** write-up Q18; Algorithm Selection (30%).
 
 ## D-12 — Corrective RAG (CRAG): partially adopt, reject web fallback 🔄  *(Algorithm Selection)*
