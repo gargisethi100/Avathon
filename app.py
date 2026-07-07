@@ -1,11 +1,12 @@
 """
-app.py — ClauseLens Streamlit demo.  Run:  streamlit run app.py
+app.py — ClauseLens conversational demo.  Run:  streamlit run app.py
 
-Shows the full pipeline transparently: query gate -> hybrid-RRF retrieval ->
-grounded Claude answer -> deterministic verifier, with the retrieved chunks +
-scores, verified quotes, a faithfulness badge, and graceful abstention / OOS
-handling. Uses the Phase-3 winning config (pipeline DEFAULTS: recursive-512 +
-bge-small + hybrid-RRF) and Claude Haiku 4.5 on Bedrock.
+A multi-turn chat over a selected contract. Each turn: the follow-up is rewritten
+into a standalone question (condense-question memory), then run through the full
+pipeline — query gate → hybrid-RRF retrieval → grounded Claude answer → deterministic
+verifier — with the retrieved chunks, verified quotes, and a faithfulness badge shown.
+Memory is bounded (last-5 turns + running summary) and resets on contract switch.
+Winner config (pipeline DEFAULTS: recursive-512 + bge-small + hybrid-RRF), Claude Haiku 4.5.
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import pandas as pd
 import streamlit as st
+from conversation import ClauseLensSession
 from pipeline import ClauseLens
 
 DATA = ROOT / "data" / "processed"
@@ -37,55 +39,71 @@ def load_lens():
 
 lens, titles = load_lens()
 
-st.title("ClauseLens — contract Q&A with citations & abstention")
-st.caption("Track D · recursive-512 + bge-small + hybrid-RRF (rerank measured to hurt) · Claude Haiku 4.5 on Bedrock")
+st.title("ClauseLens — conversational contract Q&A")
+st.caption("recursive-512 + bge-small + hybrid-RRF · Claude Haiku 4.5 · memory via query contextualization")
 
 with st.sidebar:
     st.header("Contract")
-    contract = st.selectbox("Select a contract", titles, format_func=lambda t: t[:38] + "…")
-    st.markdown("**Try these:**")
+    contract = st.selectbox("Select a contract", titles, format_func=lambda t: t[:36] + "…")
+    if st.button("🗑️ New conversation"):
+        st.session_state.pop("session", None)
+        st.session_state.pop("messages", None)
+        st.rerun()
     st.markdown(
-        "- What is the governing law?\n"
-        "- What is the termination notice period?\n"
-        "- Who are the parties?\n"
-        "- _What is the capital of France?_ (out-of-scope)\n"
-        "- _What are the terms?_ (ambiguous)"
+        "**Try a thread (memory in action):**\n"
+        "1. What is the termination provision?\n"
+        "2. *And what is its notice period?*\n"
+        "3. Who are the parties?\n\n"
+        "**Also:** *What is the capital of France?* (out-of-scope) · *What are the terms?* (ambiguous)"
     )
 
-question = st.text_input("Ask a question about the selected contract:")
+# Per-conversation state; reset on contract switch (contract-scoped memory).
+if st.session_state.get("contract") != contract:
+    st.session_state.contract = contract
+    st.session_state.session = ClauseLensSession(lens, contract)
+    st.session_state.messages = []
 
-if question:
-    with st.spinner("Gate → retrieve → generate → verify…"):
-        res = lens.answer(question, contract, k=5)
-    status = res["status"]
+session: ClauseLensSession = st.session_state.session
 
-    badge = {
-        "answered": "✅ Answered",
-        "declined_out_of_scope": "🚫 Out of scope — declined",
-        "needs_clarification": "❓ Ambiguous — clarification requested",
-        "abstained_low_score": "⚠️ Abstained (low retrieval confidence)",
-    }.get(status, status)
-    st.subheader(badge)
-    if res["trace"].get("gate"):
-        st.caption(f"Query gate → {res['trace']['gate']}")
+# Render prior turns.
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
+        if m.get("meta"):
+            st.caption(m["meta"])
 
-    st.markdown(res["answer"])
+if prompt := st.chat_input("Ask about the selected contract…"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-    if status == "answered":
-        verdict = res.get("verdict")
-        vbadge = ("🟢 grounded — every quote verified verbatim in the retrieved context"
-                  if verdict == "PASS" else f"🔴 {verdict} — quote not found in context")
-        st.markdown(f"**Faithfulness:** {vbadge}")
-        if res.get("abstained"):
-            st.info("Model returned NOT_FOUND — no supporting clause in the retrieved excerpts.")
-        if res.get("quotes"):
-            st.markdown("**Verified quotes**")
-            for q in res["quotes"]:
-                st.markdown(f"> {q}")
+    with st.chat_message("assistant"):
+        with st.spinner("Contextualize → gate → retrieve → generate → verify…"):
+            res = session.ask(prompt, contract)
 
-        with st.expander("Retrieved chunks (hybrid-RRF scores)"):
-            chunks = {c.chunk_id: c for c in lens.index.stores[contract].chunks}
-            for cid, score in res["trace"].get("retrieved", []):
-                ch = chunks.get(cid)
-                snippet = (ch.text[:320] + "…") if ch else "(missing)"
-                st.markdown(f"`{score:.3f}`  {snippet}")
+        if res.get("was_rewritten"):
+            st.caption(f"↻ interpreted as: *{res['standalone_question']}*")
+        st.markdown(res["answer"])
+
+        meta = []
+        gate = res["trace"].get("gate")
+        if gate:
+            meta.append(f"gate={gate}")
+        if res["status"] == "answered":
+            verdict = res.get("verdict")
+            meta.append("🟢 grounded" if verdict == "PASS" else f"🔴 {verdict}")
+            if res.get("quotes") or res["trace"].get("retrieved"):
+                with st.expander("Verified quotes + retrieved chunks (hybrid-RRF scores)"):
+                    for q in res.get("quotes", []):
+                        st.markdown(f"> {q}")
+                    if res.get("quotes"):
+                        st.divider()
+                    chunks = {c.chunk_id: c for c in lens.index.stores[contract].chunks}
+                    for cid_, score in res["trace"].get("retrieved", []):
+                        ch = chunks.get(cid_)
+                        st.markdown(f"`{score:.3f}`  {(ch.text[:220] + '…') if ch else '(missing)'}")
+        meta_str = " · ".join(meta)
+        if meta_str:
+            st.caption(meta_str)
+
+    st.session_state.messages.append({"role": "assistant", "content": res["answer"], "meta": meta_str})

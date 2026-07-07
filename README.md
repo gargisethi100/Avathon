@@ -59,7 +59,7 @@ python eval/retrieval_eval.py       # -> results/retrieval_metrics.{md,csv}
 # 4. End-to-end eval (answer-F1, abstention P/R, faithfulness, error buckets) — needs Bedrock
 python eval/e2e_eval.py             # -> results/e2e_metrics.md, e2e_rows.json
 
-# 5. Interactive demo
+# 5. Interactive conversational demo (multi-turn; follow-ups resolved via query contextualization)
 streamlit run app.py
 ```
 

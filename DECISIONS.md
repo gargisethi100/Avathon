@@ -189,6 +189,15 @@ measurement, not assertion.
 - **Consequences:** fully transparent, line-by-line-defensible numbers; RAGAS named as a considered framework and available as a robustness cross-check.
 - **Maps to:** Honest Error Analysis (10%); Algorithm Selection (30%); write-up §3.
 
+## D-24 — Conversational memory: condense-question + bounded summarized history ✅  *(query handling / production)*
+- **Context:** the pipeline is stateless; referential follow-ups ("and its notice period?") break **retrieval** (unresolved pronoun) and trip the gate as AMBIGUOUS.
+- **Decision:** **query contextualization (condense-question)** — an LLM rewrites each follow-up into a standalone question from the running summary + recent turns, then the *unchanged* gate → retrieve → generate → verify pipeline runs. Memory = **last-5 turns verbatim + a running summary of older turns**, **contract-scoped** (reset on switch). In `src/conversation.py` (`ClauseLensSession`), reusing the Bedrock client.
+- **Alternatives rejected:**
+  - **Stuff full history into the generator only:** retrieval still breaks on the pronoun — retrieval, not generation, is the failure point.
+  - **Unbounded history** (token/latency blowup) / **summary-only** (loses recent specifics) — the hybrid bounds cost while keeping recent turns exact.
+- **Grounding preserved:** memory resolves references only, never adds knowledge; answers stay retrieved-grounded, cited, and verifier-checked against *this* contract. Validated: "and its notice period?" → "…notice period … for termination …", and later turns auto-inject the parties' names.
+- **Maps to:** query handling (strong-submission item); Algorithm Selection (30%); production.
+
 ---
 
-*Open decisions (D-08, D-09, D-10, D-12, D-13) are resolved with numbers as Phases 3 and 5 land; this file is updated in place with the empirical winner and the measured deltas.*
+*Decisions D-08/D-09/D-10 were resolved by the Phase-3 ablation; D-12/D-13 (CRAG/CAG) remain future-work options. This file is updated in place as new decisions land.*
